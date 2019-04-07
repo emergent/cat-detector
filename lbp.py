@@ -2,12 +2,13 @@ import sys
 import numpy as np
 from skimage import io, feature, color
 from glob import iglob
+import sklearn.svm
 import pickle
 
 LBP_POINTS = 24
 LBP_RADIUS = 3
-
 CELL_SIZE = 4
+
 def get_histogram(image):
     lbp = feature.local_binary_pattern(image, LBP_POINTS, LBP_RADIUS, 'uniform')
 
@@ -32,23 +33,40 @@ def get_features(directory):
         features.append(get_histogram(np.fliplr(image)).reshape(-1))
     return features
 
-def main():
-    if len(sys.argv) < 4:
-        print('{} pos_dir neg_dir serialized_output_file')
+def learn_svm(X, y):
+    classifier = sklearn.svm.LinearSVC(C = 0.0001)
+    classifier.fit(X, y)
+    return classifier
 
-    positive_dir = sys.argv[1]
-    negative_dir = sys.argv[2]
+def test_svm(X, y, classifier):
+    y_predict = classifier.predict(X)
+    correct = 0
+    for i in range(len(y)):
+        if y[i] == y_predict[i]: correct += 1
+    print('Accuracy: {}'.format(float(correct) / len(y)))
+
+def get_lbp(positive_dir, negative_dir):
     positive_samples = get_features(positive_dir)
     negative_samples = get_features(negative_dir)
     n_positives = len(positive_samples)
     n_negatives = len(negative_samples)
 
     X = np.array(positive_samples + negative_samples)
-    y = np.array([1 for i in range(n_positives)] + 
+    y = np.array([1 for i in range(n_positives)] +
                 [0 for i in range(n_negatives)])
 
-    pickle.dump((X, y), open(sys.argv[3], 'wb'))
+    return (X, y)
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) < 4:
+        print('{} [pos_dir] [neg_dir] [pos_test_dir] [neg_test_dir] [serialized_output_file]')
 
+    # training
+    X, y = get_lbp(sys.argv[1], sys.argv[2])
+    classifier = learn_svm(X, y)
+
+    # test
+    X2, y2 = get_lbp(sys.argv[3], sys.argv[4])
+    test_svm(X2, y2, classifier)
+
+    pickle.dump(classifier, open(sys.argv[5], 'wb'))
