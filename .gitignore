@@ -1,0 +1,11 @@
+test
+test.old
+negative
+negative_test
+positive
+positive_test
+out
+*.png
+ser*
+__pycache__
+.pytest_cache
